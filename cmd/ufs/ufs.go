@@ -9,6 +9,7 @@ import (
 	"log"
 	"net"
 
+	"github.com/Harvey-OS/ninep/debug"
 	"github.com/Harvey-OS/ninep/filesystem"
 	"github.com/Harvey-OS/ninep/protocol"
 )
@@ -17,39 +18,37 @@ var (
 	ntype = flag.String("ntype", "tcp4", "Default network type")
 	naddr = flag.String("addr", ":5640", "Network address")
 	root  = flag.String("root", "/", "filesystem root")
-	debug = flag.Bool("debug", false, "enable debug messages")
+	trace = flag.Bool("trace", false, "enable debug messages")
 )
+
+func checkErr(format string, err error) {
+	if err != nil {
+		log.Fatalf(format, err)
+	}
+}
 
 func main() {
 	flag.Parse()
 
-	ln, err := net.Listen(*ntype, *naddr)
-	if err != nil {
-		log.Fatalf("Listen failed: %v", err)
+	var tracer protocol.Tracer
+	if *trace {
+		tracer = log.Printf
 	}
 
-	fs, err := ufs.NewServer(ufs.Root(*root), func(fs *ufs.FileServer) error {
-		if *debug {
-			return ufs.Trace(log.Printf)(fs)
-		}
+	ln, err := net.Listen(*ntype, *naddr)
+	checkErr("Listen failed: %v", err)
 
-		return nil
-	})
+	fs, err := ufs.NewServer(ufs.Root(*root), ufs.Trace(tracer))
+	checkErr("ufs.NewServer failed: %v", err)
 
 	var ninefs protocol.NineServer = fs
-	if *debug {
-		ninefs = fs.Debug()
+	if *trace {
+		ninefs, err = debug.NewServer(ninefs, debug.Trace(tracer))
+		checkErr("debug.NewServer failed: %v", err)
 	}
 
-	s, err := protocol.NewServer(ninefs, func(s *protocol.Server) error {
-		if *debug {
-			s.Trace = log.Printf
-		}
+	s, err := protocol.NewServer(ninefs, protocol.Trace(tracer))
+	checkErr("protocol.NewServer failed: %v", err)
 
-		return nil
-	})
-
-	if err := s.Serve(ln); err != nil {
-		log.Fatal(err)
-	}
+	checkErr("Serve failed: %v", s.Serve(ln))
 }

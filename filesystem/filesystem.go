@@ -99,10 +99,6 @@ func (s *FileServer) logf(format string, args ...interface{}) {
 	}
 }
 
-func (s *FileServer) Debug() protocol.NineServer {
-	return &debugFileServer{s}
-}
-
 func (e *FileServer) Rversion(msize protocol.MaxSize, version string) (protocol.MaxSize, string, error) {
 	if version != "9P2000" {
 		return 0, "", fmt.Errorf("%v not supported; only 9P2000", version)

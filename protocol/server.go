@@ -27,8 +27,8 @@ type Server struct {
 	// TCP address to listen on, default is DefaultAddr
 	Addr string
 
-	// Trace function for logging
-	Trace Tracer
+	// trace function for logging
+	trace Tracer
 
 	// mu guards below
 	mu sync.Mutex
@@ -63,6 +63,13 @@ func NewServer(ns NineServer, opts ...ServerOpt) (*Server, error) {
 		}
 	}
 	return s, nil
+}
+
+func Trace(tracer Tracer) ServerOpt {
+	return func(s *Server) error {
+		s.trace = tracer
+		return nil
+	}
 }
 
 func (s *Server) newConn(rwc net.Conn) *conn {
@@ -179,8 +186,8 @@ func (s *Server) String() string {
 }
 
 func (s *Server) logf(format string, args ...interface{}) {
-	if s.Trace != nil {
-		s.Trace(format, args...)
+	if s.trace != nil {
+		s.trace(format, args...)
 	}
 }
 

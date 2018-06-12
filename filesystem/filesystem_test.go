@@ -83,10 +83,7 @@ func TestMount(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	n, err := protocol.NewServer(fs, func(s *protocol.Server) error {
-		s.Trace = print //t.Logf
-		return nil
-	})
+	n, err := protocol.NewServer(fs, protocol.Trace(print))
 	if err != nil {
 		t.Fatal(err)
 	}
