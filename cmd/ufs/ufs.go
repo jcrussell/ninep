@@ -16,6 +16,8 @@ import (
 var (
 	ntype = flag.String("ntype", "tcp4", "Default network type")
 	naddr = flag.String("addr", ":5640", "Network address")
+	root  = flag.String("root", "/", "filesystem root")
+	debug = flag.Bool("debug", false, "enable debug messages")
 )
 
 func main() {
@@ -26,8 +28,24 @@ func main() {
 		log.Fatalf("Listen failed: %v", err)
 	}
 
-	s, err := ufs.NewUFS(func(s *protocol.Server) error {
-		s.Trace = nil // log.Printf
+	fs, err := ufs.NewServer(ufs.Root(*root), func(fs *ufs.FileServer) error {
+		if *debug {
+			return ufs.Trace(log.Printf)(fs)
+		}
+
+		return nil
+	})
+
+	var ninefs protocol.NineServer = fs
+	if *debug {
+		ninefs = fs.Debug()
+	}
+
+	s, err := protocol.NewServer(ninefs, func(s *protocol.Server) error {
+		if *debug {
+			s.Trace = log.Printf
+		}
+
 		return nil
 	})
 
