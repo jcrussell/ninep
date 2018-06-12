@@ -330,10 +330,7 @@ func TestTManyRPCs(t *testing.T) {
 	t.Logf("Client is %v", c.String())
 
 	e := newEcho()
-	s, err := NewServer(e, func(s *Server) error {
-		s.Trace = print
-		return nil
-	})
+	s, err := NewServer(e, Trace(print))
 	if err != nil {
 		t.Fatalf("NewServer: want nil, got %v", err)
 	}
@@ -368,12 +365,7 @@ func TestTMessages(t *testing.T) {
 	t.Logf("Client is %v", c.String())
 
 	e := newEcho()
-	s, err := NewServer(e, func(s *Server) error {
-		s.Trace = print // t.Logf
-		s.NS = e
-		return nil
-	})
-
+	s, err := NewServer(e, Trace(print))
 	if err != nil {
 		t.Fatalf("NewServer: want nil, got %v", err)
 	}
