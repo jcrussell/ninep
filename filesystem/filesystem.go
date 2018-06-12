@@ -6,7 +6,6 @@ package ufs
 
 import (
 	"bytes"
-	"flag"
 	"fmt"
 	"io"
 	"log"
@@ -38,12 +37,11 @@ type FileServer struct {
 	// mu guards below
 	mu    sync.Mutex
 	files map[protocol.FID]*file
+
+	trace protocol.Tracer
 }
 
-var (
-	debug = flag.Int("debug", 0, "print debug messages")
-	root  = flag.String("root", "/", "Set the root for all attaches")
-)
+type ServerOpt func(*FileServer) error
 
 func stat(s string) (*protocol.Dir, protocol.QID, error) {
 	var q protocol.QID
@@ -57,6 +55,52 @@ func stat(s string) (*protocol.Dir, protocol.QID, error) {
 	}
 	q = fileInfoToQID(st)
 	return d, q, nil
+}
+
+func NewServer(opts ...ServerOpt) (*FileServer, error) {
+	s := &FileServer{
+		mu:    &sync.Mutex{},
+		Files: make(map[protocol.FID]*File),
+	}
+
+	for _, opt := range opts {
+		if err := opt(s); err != nil {
+			return nil, err
+		}
+	}
+
+	return s, nil
+}
+
+func Root(root string) ServerOpt {
+	return func(s *FileServer) error {
+		s.rootPath = root
+		return nil
+	}
+}
+
+func IOunit(size protocol.MaxSize) ServerOpt {
+	return func(s *FileServer) error {
+		s.IOunit = size
+		return nil
+	}
+}
+
+func Trace(tracer protocol.Tracer) ServerOpt {
+	return func(s *FileServer) error {
+		s.trace = tracer
+		return nil
+	}
+}
+
+func (s *FileServer) logf(format string, args ...interface{}) {
+	if s.trace != nil {
+		s.trace(format, args...)
+	}
+}
+
+func (s *FileServer) Debug() protocol.NineServer {
+	return &debugFileServer{s}
 }
 
 func (e *FileServer) Rversion(msize protocol.MaxSize, version string) (protocol.MaxSize, string, error) {
@@ -440,23 +484,4 @@ func (e *FileServer) Rwrite(fid protocol.FID, o protocol.Offset, b []byte) (prot
 
 	n, err := f.file.WriteAt(b, int64(o))
 	return protocol.Count(n), err
-}
-
-type ServerOpt func(*protocol.Server) error
-
-func NewUFS(opts ...protocol.ServerOpt) (*protocol.Server, error) {
-	f := &FileServer{}
-	f.files = make(map[protocol.FID]*file)
-	f.rootPath = *root // for now.
-	// any opts for the ufs layer can be added here too ...
-	var d protocol.NineServer = f
-	if *debug != 0 {
-		d = &debugFileServer{f}
-	}
-	s, err := protocol.NewServer(d, opts...)
-	if err != nil {
-		return nil, err
-	}
-	f.IOunit = 8192
-	return s, nil
 }
