@@ -59,8 +59,7 @@ func stat(s string) (*protocol.Dir, protocol.QID, error) {
 
 func NewServer(opts ...ServerOpt) (*FileServer, error) {
 	s := &FileServer{
-		mu:    &sync.Mutex{},
-		Files: make(map[protocol.FID]*File),
+		files: make(map[protocol.FID]*file),
 	}
 
 	for _, opt := range opts {
