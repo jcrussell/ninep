@@ -6,6 +6,7 @@ package ufs
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -60,6 +61,7 @@ func stat(s string) (*protocol.Dir, protocol.QID, error) {
 func NewServer(opts ...ServerOpt) (*FileServer, error) {
 	s := &FileServer{
 		files: make(map[protocol.FID]*file),
+		trace: nologf,
 	}
 
 	for _, opt := range opts {
@@ -87,16 +89,16 @@ func IOunit(size protocol.MaxSize) ServerOpt {
 
 func Trace(tracer protocol.Tracer) ServerOpt {
 	return func(s *FileServer) error {
+		if tracer == nil {
+			return errors.New("tracer cannot be nil")
+		}
 		s.trace = tracer
 		return nil
 	}
 }
 
-func (s *FileServer) logf(format string, args ...interface{}) {
-	if s.trace != nil {
-		s.trace(format, args...)
-	}
-}
+// nologf does nothing and is the default trace function
+func nologf(format string, args ...interface{}) {}
 
 func (e *FileServer) Rversion(msize protocol.MaxSize, version string) (protocol.MaxSize, string, error) {
 	if version != "9P2000" {

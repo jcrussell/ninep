@@ -8,6 +8,7 @@ package protocol
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -54,9 +55,12 @@ type conn struct {
 }
 
 func NewServer(ns NineServer, opts ...ServerOpt) (*Server, error) {
-	s := &Server{}
-	s.NS = ns
-	s.D = Dispatch
+	s := &Server{
+		NS:    ns,
+		D:     Dispatch,
+		trace: nologf,
+	}
+
 	for _, o := range opts {
 		if err := o(s); err != nil {
 			return nil, err
@@ -67,10 +71,16 @@ func NewServer(ns NineServer, opts ...ServerOpt) (*Server, error) {
 
 func Trace(tracer Tracer) ServerOpt {
 	return func(s *Server) error {
+		if tracer == nil {
+			return errors.New("tracer cannot be nil")
+		}
 		s.trace = tracer
 		return nil
 	}
 }
+
+// nologf does nothing and is the default trace function
+func nologf(format string, args ...interface{}) {}
 
 func (s *Server) newConn(rwc net.Conn) *conn {
 	c := &conn{
@@ -148,7 +158,7 @@ func (s *Server) Serve(ln net.Listener) error {
 				if max := 1 * time.Second; tempDelay > max {
 					tempDelay = max
 				}
-				s.logf("ufs: Accept error: %v; retrying in %v", err, tempDelay)
+				s.trace("ufs: Accept error: %v; retrying in %v", err, tempDelay)
 				time.Sleep(tempDelay)
 				continue
 			}
@@ -185,19 +195,13 @@ func (s *Server) String() string {
 	return ""
 }
 
-func (s *Server) logf(format string, args ...interface{}) {
-	if s.trace != nil {
-		s.trace(format, args...)
-	}
-}
-
 func (c *conn) String() string {
 	return fmt.Sprintf("Dead %v %d replies pending", c.dead, len(c.replies))
 }
 
 func (c *conn) logf(format string, args ...interface{}) {
 	// prepend some info about the conn
-	c.server.logf("[%v] "+format, append([]interface{}{c.remoteAddr}, args...)...)
+	c.server.trace("[%v] "+format, append([]interface{}{c.remoteAddr}, args...)...)
 }
 
 func (c *conn) serve() {
