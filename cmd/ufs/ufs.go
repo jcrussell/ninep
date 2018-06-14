@@ -30,7 +30,7 @@ func checkErr(format string, err error) {
 func main() {
 	flag.Parse()
 
-	var tracer protocol.Tracer
+	tracer := func(format string, args ...interface{}) {}
 	if *trace {
 		tracer = log.Printf
 	}
